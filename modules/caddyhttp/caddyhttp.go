@@ -30,7 +30,7 @@ import (
 
   "github.com/caddyserver/caddy/v2"
   "github.com/caddyserver/caddy/v2/modules/caddytls"
-  "github.com/lucas-clemente/quic-go/http3"
+  "github.com/caddyserver/caddy/v2/quic-go/http3"
   "github.com/mholt/certmagic"
   "go.uber.org/zap"
 )
@@ -249,6 +249,7 @@ func (app *App) Start() error {
           /////////
         }
 
+        // add listener for http request for fall back
         go s.Serve(ln)
         app.servers = append(app.servers, s)
       }

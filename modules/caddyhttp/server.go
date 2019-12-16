@@ -26,7 +26,7 @@ import (
 
   "github.com/caddyserver/caddy/v2"
   "github.com/caddyserver/caddy/v2/modules/caddytls"
-  "github.com/lucas-clemente/quic-go/http3"
+  "github.com/caddyserver/caddy/v2/quic-go/http3"
   "go.uber.org/zap"
   "go.uber.org/zap/zapcore"
 )

@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
-	quic "github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/http3"
+	quic "github.com/caddyserver/caddy/v2/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go/http3"
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/testdata"
 

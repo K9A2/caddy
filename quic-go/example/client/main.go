@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/lucas-clemente/quic-go/http3"
+	"github.com/caddyserver/caddy/v2/quic-go/http3"
 	"github.com/caddyserver/caddy/v2/quic-go/core/testdata"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
 )

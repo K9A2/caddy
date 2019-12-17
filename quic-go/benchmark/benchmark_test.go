@@ -11,7 +11,7 @@ import (
 
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/testdata"
-	quic "github.com/lucas-clemente/quic-go"
+	quic "github.com/caddyserver/caddy/v2/quic-go"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

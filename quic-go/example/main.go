@@ -17,11 +17,11 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/http3"
+	"github.com/caddyserver/caddy/v2/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go/http3"
 	"github.com/caddyserver/caddy/v2/quic-go/core/testdata"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
-	"github.com/lucas-clemente/quic-go/quictrace"
+	"github.com/caddyserver/caddy/v2/quic-go/quictrace"
 )
 
 type binds []string

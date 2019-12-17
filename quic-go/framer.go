@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/caddyserver/caddy/v2/quic-go/core/ackhandler"

@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	quic "github.com/lucas-clemente/quic-go"
-	quicproxy "github.com/lucas-clemente/quic-go/integrationtests/tools/proxy"
+	quic "github.com/caddyserver/caddy/v2/quic-go"
+	quicproxy "github.com/caddyserver/caddy/v2/quic-go/integrationtests/tools/proxy"
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/qerr"
 	"github.com/caddyserver/caddy/v2/quic-go/core/testutils"

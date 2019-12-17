@@ -141,6 +141,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   w.Header().Set("Server", "Caddy")
 
   if s.h3server != nil {
+    // write http3 response header
     err := s.h3server.SetQuicHeaders(w.Header())
     if err != nil {
       s.logger.Error("setting HTTP/3 Alt-Svc header", zap.Error(err))

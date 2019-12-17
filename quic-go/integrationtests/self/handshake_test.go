@@ -7,8 +7,8 @@ import (
 	"net"
 	"time"
 
-	quic "github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/integrationtests/tools/israce"
+	quic "github.com/caddyserver/caddy/v2/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go/integrationtests/tools/israce"
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/qerr"
 	. "github.com/onsi/ginkgo"

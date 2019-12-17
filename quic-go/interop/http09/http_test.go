@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go"
 	"github.com/caddyserver/caddy/v2/quic-go/core/testdata"
 
 	. "github.com/onsi/ginkgo"

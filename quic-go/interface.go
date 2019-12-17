@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
-	"github.com/lucas-clemente/quic-go/quictrace"
+	"github.com/caddyserver/caddy/v2/quic-go/quictrace"
 )
 
 // The StreamID is the ID of a QUIC stream.

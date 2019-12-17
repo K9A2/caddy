@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
 	"github.com/marten-seemann/qpack"
 )

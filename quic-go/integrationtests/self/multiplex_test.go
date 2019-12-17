@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"time"
 
-	quic "github.com/lucas-clemente/quic-go"
+	quic "github.com/caddyserver/caddy/v2/quic-go"
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 
 	. "github.com/onsi/ginkgo"

@@ -11,9 +11,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/lucas-clemente/quic-go/http3"
+	"github.com/caddyserver/caddy/v2/quic-go/http3"
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
-	"github.com/lucas-clemente/quic-go/interop/http09"
+	"github.com/caddyserver/caddy/v2/quic-go/interop/http09"
 	"golang.org/x/sync/errgroup"
 )
 

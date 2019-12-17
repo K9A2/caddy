@@ -13,7 +13,7 @@ import (
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
 	"github.com/caddyserver/caddy/v2/quic-go/core/wire"
-	"github.com/lucas-clemente/quic-go/quictrace"
+	"github.com/caddyserver/caddy/v2/quic-go/quictrace"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

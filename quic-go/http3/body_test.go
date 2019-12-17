@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lucas-clemente/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go"
 	mockquic "github.com/caddyserver/caddy/v2/quic-go/core/mocks/quic"
 
 	. "github.com/onsi/ginkgo"

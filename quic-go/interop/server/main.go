@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/http3"
+	"github.com/caddyserver/caddy/v2/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go/http3"
 	"github.com/caddyserver/caddy/v2/quic-go/core/testdata"
-	"github.com/lucas-clemente/quic-go/interop/http09"
+	"github.com/caddyserver/caddy/v2/quic-go/interop/http09"
 )
 
 func main() {

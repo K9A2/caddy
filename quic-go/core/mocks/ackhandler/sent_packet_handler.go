@@ -12,7 +12,7 @@ import (
 	ackhandler "github.com/caddyserver/caddy/v2/quic-go/core/ackhandler"
 	protocol "github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	wire "github.com/caddyserver/caddy/v2/quic-go/core/wire"
-	quictrace "github.com/lucas-clemente/quic-go/quictrace"
+	quictrace "github.com/caddyserver/caddy/v2/quic-go/quictrace"
 )
 
 // MockSentPacketHandler is a mock of SentPacketHandler interface

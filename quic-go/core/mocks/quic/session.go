@@ -11,7 +11,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	quic_go "github.com/lucas-clemente/quic-go"
+	quic_go "github.com/caddyserver/caddy/v2/quic-go"
 	protocol "github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 )
 

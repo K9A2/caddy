@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/caddyserver/caddy/v2/quic-go"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
 	"github.com/marten-seemann/qpack"
 	"github.com/onsi/ginkgo"
@@ -104,7 +104,7 @@ func (s *Server) serveImpl(tlsConf *tls.Config, conn net.PacketConn) error {
 	} else {
 		tlsConf = tlsConf.Clone()
 	}
-	// Replace existing ALPNs by H3
+	// Replace existing ALPNs by H3-24
 	tlsConf.NextProtos = []string{nextProtoH3}
 	if tlsConf.GetConfigForClient != nil {
 		getConfigForClient := tlsConf.GetConfigForClient
@@ -134,6 +134,7 @@ func (s *Server) serveImpl(tlsConf *tls.Config, conn net.PacketConn) error {
 
 	for {
 		sess, err := ln.Accept(context.Background())
+		//fmt.Printf("accept http/3 connection, time = %v\n", time.Now().String())
 		if err != nil {
 			return err
 		}
@@ -179,6 +180,7 @@ func (s *Server) handleConn(sess quic.Session) {
 			s.logger.Debugf("Accepting stream failed: %s", err)
 			return
 		}
+		//fmt.Printf("accepted stream id = %v\n", str.StreamID())
 		go func() {
 			defer ginkgo.GinkgoRecover()
 			rerr := s.handleRequest(str, decoder, func() {
@@ -210,6 +212,7 @@ func (s *Server) maxHeaderBytes() uint64 {
 	return uint64(s.Server.MaxHeaderBytes)
 }
 
+// handle all http3 request
 func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameError func()) requestError {
 	frame, err := parseNextFrame(str)
 	if err != nil {
@@ -240,8 +243,10 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 
 	if s.logger.Debug() {
 		s.logger.Infof("%s %s%s, on stream %d", req.Method, req.Host, req.RequestURI, str.StreamID())
+		//fmt.Printf("%s %s%s, on stream %d\n", req.Method, req.Host, req.RequestURI, str.StreamID())
 	} else {
 		s.logger.Infof("%s %s%s", req.Method, req.Host, req.RequestURI)
+		//fmt.Printf("%s %s%s\n", req.Method, req.Host, req.RequestURI)
 	}
 
 	req = req.WithContext(str.Context())
@@ -263,6 +268,7 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 				panicked = true
 			}
 		}()
+		// using provided http handler
 		handler.ServeHTTP(responseWriter, req)
 		// read the eof
 		if _, err = str.Read([]byte{0}); err == io.EOF {
@@ -270,6 +276,7 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 		}
 	}()
 
+	// return a proper http status code
 	if panicked {
 		responseWriter.WriteHeader(500)
 	} else {

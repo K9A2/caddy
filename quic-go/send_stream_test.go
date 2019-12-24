@@ -40,7 +40,7 @@ var _ = Describe("Send Stream", func() {
 	waitForWrite := func() {
 		EventuallyWithOffset(0, func() []byte {
 			str.mutex.Lock()
-			data := str.dataForWriting
+			data := str.DataForWriting
 			str.mutex.Unlock()
 			return data
 		}).ShouldNot(BeEmpty())
@@ -71,7 +71,7 @@ var _ = Describe("Send Stream", func() {
 			Expect(f.Offset).To(BeZero())
 			Expect(f.DataLenPresent).To(BeTrue())
 			Expect(str.writeOffset).To(Equal(protocol.ByteCount(6)))
-			Expect(str.dataForWriting).To(BeNil())
+			Expect(str.DataForWriting).To(BeNil())
 			Eventually(done).Should(BeClosed())
 		})
 
@@ -420,7 +420,7 @@ var _ = Describe("Send Stream", func() {
 				frameHeaderLen := protocol.ByteCount(4)
 				mockFC.EXPECT().SendWindowSize().Return(protocol.ByteCount(9999)).Times(2)
 				mockFC.EXPECT().AddBytesSent(gomock.Any()).Times(2)
-				str.dataForWriting = []byte("foobar")
+				str.DataForWriting = []byte("foobar")
 				Expect(str.Close()).To(Succeed())
 				frame, _ := str.popStreamFrame(3 + frameHeaderLen)
 				Expect(frame).ToNot(BeNil())

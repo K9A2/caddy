@@ -21,6 +21,12 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	closeForShutdown(error)
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
+
+	getDataSize() int
+	SetUrl(url string)
+	GetUrl() string
+	GetMtype() string
+	SetMtype(string)
 }
 
 type sendStream struct {
@@ -46,7 +52,7 @@ type sendStream struct {
 	finSent           bool // set when a STREAM_FRAME with FIN bit has been sent
 	completed         bool // set when this stream has been reported to the streamSender as completed
 
-	dataForWriting []byte
+	DataForWriting []byte
 
 	writeChan chan struct{}
 	deadline  time.Time
@@ -54,6 +60,9 @@ type sendStream struct {
 	flowController flowcontrol.StreamFlowController
 
 	version protocol.VersionNumber
+
+	url string
+	mtype string
 }
 
 var _ SendStream = &sendStream{}
@@ -74,6 +83,28 @@ func newSendStream(
 	}
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	return s
+}
+
+func (s *sendStream) getDataSize() int {
+	defer s.mutex.Unlock()
+	s.mutex.Lock()
+	return len(s.DataForWriting)
+}
+
+func (s *sendStream) SetUrl(url string) {
+	s.url = url
+}
+
+func (s *sendStream) GetUrl() string {
+	return s.url
+}
+
+func (s *sendStream) GetMtype() string {
+	return s.mtype
+}
+
+func (s *sendStream) SetMtype(mtype string) {
+	s.mtype = mtype
 }
 
 func (s *sendStream) StreamID() protocol.StreamID {
@@ -100,7 +131,9 @@ func (s *sendStream) Write(p []byte) (int, error) {
 		return 0, nil
 	}
 
-	s.dataForWriting = p
+	s.DataForWriting = p
+
+	//fmt.Printf("stream %v write with data size = %v\n", s.StreamID(), s.getDataSize())
 
 	var (
 		deadlineTimer  *utils.Timer
@@ -108,11 +141,11 @@ func (s *sendStream) Write(p []byte) (int, error) {
 		notifiedSender bool
 	)
 	for {
-		bytesWritten = len(p) - len(s.dataForWriting)
+		bytesWritten = len(p) - len(s.DataForWriting)
 		deadline := s.deadline
 		if !deadline.IsZero() {
 			if !time.Now().Before(deadline) {
-				s.dataForWriting = nil
+				s.DataForWriting = nil
 				return bytesWritten, errDeadline
 			}
 			if deadlineTimer == nil {
@@ -120,13 +153,17 @@ func (s *sendStream) Write(p []byte) (int, error) {
 			}
 			deadlineTimer.Reset(deadline)
 		}
-		if s.dataForWriting == nil || s.canceledWrite || s.closedForShutdown {
+		if s.DataForWriting == nil || s.canceledWrite || s.closedForShutdown {
 			break
 		}
 
 		s.mutex.Unlock()
 		if !notifiedSender {
 			s.sender.onHasStreamData(s.streamID) // must be called without holding the mutex
+			if s.GetMtype() == "" {
+				s.mtype = GetMimeType(s.url)
+			}
+			//fmt.Printf("stream %v, mime-type = %v\n", s.StreamID(), s.mtype)
 			notifiedSender = true
 		}
 		if deadline.IsZero() {
@@ -201,7 +238,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 
 	maxDataLen := f.MaxDataLen(maxBytes, s.version)
 	if maxDataLen == 0 { // a STREAM frame must have at least one byte of data
-		return s.dataForWriting != nil
+		return s.DataForWriting != nil
 	}
 	s.getDataForWriting(f, maxDataLen)
 	if len(f.Data) == 0 && !f.FinBit {
@@ -209,7 +246,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 		// - popStreamFrame is called but there's no data for writing
 		// - there's data for writing, but the stream is stream-level flow control blocked
 		// - there's data for writing, but the stream is connection-level flow control blocked
-		if s.dataForWriting == nil {
+		if s.DataForWriting == nil {
 			return false
 		}
 		if isBlocked, offset := s.flowController.IsNewlyBlocked(); isBlocked {
@@ -224,7 +261,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 	if f.FinBit {
 		s.finSent = true
 	}
-	return s.dataForWriting != nil
+	return s.DataForWriting != nil
 }
 
 func (s *sendStream) maybeGetRetransmission(maxBytes protocol.ByteCount) (*wire.StreamFrame, bool /* has more retransmissions */) {
@@ -239,13 +276,13 @@ func (s *sendStream) maybeGetRetransmission(maxBytes protocol.ByteCount) (*wire.
 
 func (s *sendStream) hasData() bool {
 	s.mutex.Lock()
-	hasData := len(s.dataForWriting) > 0
+	hasData := len(s.DataForWriting) > 0
 	s.mutex.Unlock()
 	return hasData
 }
 
 func (s *sendStream) getDataForWriting(f *wire.StreamFrame, maxBytes protocol.ByteCount) {
-	if s.dataForWriting == nil {
+	if s.DataForWriting == nil {
 		f.FinBit = s.finishedWriting && !s.finSent
 		return
 	}
@@ -255,19 +292,19 @@ func (s *sendStream) getDataForWriting(f *wire.StreamFrame, maxBytes protocol.By
 		return
 	}
 
-	if protocol.ByteCount(len(s.dataForWriting)) > maxBytes {
+	if protocol.ByteCount(len(s.DataForWriting)) > maxBytes {
 		f.Data = f.Data[:maxBytes]
-		copy(f.Data, s.dataForWriting)
-		s.dataForWriting = s.dataForWriting[maxBytes:]
+		copy(f.Data, s.DataForWriting)
+		s.DataForWriting = s.DataForWriting[maxBytes:]
 	} else {
-		f.Data = f.Data[:len(s.dataForWriting)]
-		copy(f.Data, s.dataForWriting)
-		s.dataForWriting = nil
+		f.Data = f.Data[:len(s.DataForWriting)]
+		copy(f.Data, s.DataForWriting)
+		s.DataForWriting = nil
 		s.signalWrite()
 	}
 	s.writeOffset += f.DataLen()
 	s.flowController.AddBytesSent(f.DataLen())
-	f.FinBit = s.finishedWriting && s.dataForWriting == nil && !s.finSent
+	f.FinBit = s.finishedWriting && s.DataForWriting == nil && !s.finSent
 }
 
 func (s *sendStream) frameAcked(f wire.Frame) {
@@ -296,6 +333,7 @@ func (s *sendStream) isNewlyCompleted() bool {
 }
 
 func (s *sendStream) queueRetransmission(f wire.Frame) {
+	//fmt.Printf("calling in send_stream.go - queueRetransmission(), size = %v\n", s.getDataSize())
 	sf := f.(*wire.StreamFrame)
 	sf.DataLenPresent = true
 	s.mutex.Lock()
@@ -353,8 +391,9 @@ func (s *sendStream) cancelWriteImpl(errorCode protocol.ApplicationErrorCode, wr
 }
 
 func (s *sendStream) handleMaxStreamDataFrame(frame *wire.MaxStreamDataFrame) {
+	//fmt.Printf("calling in send_stream.go - handleMaxStreamDataFrame(), size = %v\n", s.getDataSize())
 	s.mutex.Lock()
-	hasStreamData := s.dataForWriting != nil
+	hasStreamData := s.DataForWriting != nil
 	s.mutex.Unlock()
 
 	s.flowController.UpdateSendWindow(frame.ByteOffset)

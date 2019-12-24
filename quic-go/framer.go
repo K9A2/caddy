@@ -1,6 +1,9 @@
 package quic
 
 import (
+	"fmt"
+	"mime"
+	"path/filepath"
 	"sync"
 
 	"github.com/caddyserver/caddy/v2/quic-go/core/ackhandler"
@@ -67,45 +70,105 @@ func (f *framerI) AppendControlFrames(frames []ackhandler.Frame, maxLen protocol
 }
 
 func (f *framerI) AddActiveStream(id protocol.StreamID) {
+	defer f.mutex.Unlock()
 	f.mutex.Lock()
 	if _, ok := f.activeStreams[id]; !ok {
-		f.streamQueue = append(f.streamQueue, id)
+		// add only when it is absent
+		//f.streamQueue = append(f.streamQueue, id)
 		f.activeStreams[id] = struct{}{}
+
+		// add to custom stream repository
+		str, _ := f.streamGetter.GetOrOpenSendStream(id)
+		//fmt.Printf("adding stream %v to transmission queue, mime-type = %v\n", str.StreamID(), str.GetMtype())
+		//if str == nil || err != nil {
+		//	delete(f.activeStreams, id)
+		//}
+		if str.GetMtype() == "" {
+			str.SetMtype("unknown")
+			//fmt.Printf("warning: grant mimt-type unknown to stream %v\n", str.StreamID())
+		}
+		mtype := str.GetMtype()
+		//fmt.Printf("added stream %v, mime-type = [%v]\n", str.StreamID(), str.GetMtype())
+		if _, ok := highestPriorityFileTypes[mtype]; ok {
+			//repo.highestPriorityQueue = append(repo.highestPriorityQueue, id)
+			repo.highestPriorityQueue = insertBySize(id, repo.highestPriorityQueue, f.streamGetter)
+			//fmt.Printf("AddActiveStream: stream %v added to highest priority queue\n", str.StreamID())
+			return
+		} else if _, ok := highPriorityFileTypes[mtype]; ok {
+			//repo.highPriorityQueue = append(repo.highPriorityQueue, id)
+			repo.highPriorityQueue = insertBySize(id, repo.highPriorityQueue, f.streamGetter)
+			//fmt.Printf("AddActiveStream: stream %v added to high priority queue\n", str.StreamID())
+			return
+		} else if _, ok := normalPriorityFileTypes[mtype]; ok {
+			//repo.normalPriorityQueue = append(repo.normalPriorityQueue, id)
+			repo.normalPriorityQueue = insertBySize(id, repo.normalPriorityQueue, f.streamGetter)
+			//fmt.Printf("AddActiveStream: stream %v added to normal priority queue\n", str.StreamID())
+			return
+		} else if _, ok := lowPriorityFileTypes[mtype]; ok {
+			//repo.lowPriorityQueue = append(repo.lowPriorityQueue, id)
+			repo.lowPriorityQueue = insertBySize(id, repo.lowPriorityQueue, f.streamGetter)
+			//fmt.Printf("AddActiveStream: stream %v added to low priority queue\n", str.StreamID())
+			return
+		} else if _, ok := lowestPriorityFileTypes[mtype]; ok {
+			//repo.lowestPriorityQueue = append(repo.lowestPriorityQueue, id)
+			repo.lowestPriorityQueue = insertBySize(id, repo.lowestPriorityQueue, f.streamGetter)
+			//fmt.Printf("AddActiveStream: stream %v added to lowest priority queue\n", str.StreamID())
+			return
+		}
 	}
-	f.mutex.Unlock()
 }
 
 func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount) {
 	var length protocol.ByteCount
 	var lastFrame *ackhandler.Frame
+
 	f.mutex.Lock()
 	// pop STREAM frames, until less than MinStreamFrameSize bytes are left in the packet
-	numActiveStreams := len(f.streamQueue)
+	//numActiveStreams := len(f.streamQueue)
+	numActiveStreams := repo.activeStreamsCount()
+	//fmt.Printf("numActiveStreams = %v\n", numActiveStreams)
 	for i := 0; i < numActiveStreams; i++ {
 		if protocol.MinStreamFrameSize+length > maxLen {
 			break
 		}
-		id := f.streamQueue[0]
-		f.streamQueue = f.streamQueue[1:]
+
+		// removeIdleStream the first one from stream queue
+		//id := f.streamQueue[0]
+		//f.streamQueue = f.streamQueue[1:]
+		id := repo.popNextActiveStream()
+
 		// This should never return an error. Better check it anyway.
 		// The stream will only be in the streamQueue, if it enqueued itself there.
 		str, err := f.streamGetter.GetOrOpenSendStream(id)
 		// The stream can be nil if it completed after it said it had data.
 		if str == nil || err != nil {
 			delete(f.activeStreams, id)
+			removeIdleStream(id, f.streamGetter)
 			continue
 		}
 		remainingLen := maxLen - length
-		// For the last STREAM frame, we'll remove the DataLen field later.
+		// For the last STREAM frame, we'll removeIdleStream the DataLen field later.
 		// Therefore, we can pretend to have more bytes available when popping
 		// the STREAM frame (which will always have the DataLen set).
 		remainingLen += utils.VarIntLen(uint64(remainingLen))
 		frame, hasMoreData := str.popStreamFrame(remainingLen)
-		if hasMoreData { // put the stream back in the queue (at the end)
-			f.streamQueue = append(f.streamQueue, id)
-		} else { // no more data to send. Stream is not active any more
+
+		// if the first stream still has more data to sent, it will still be placed
+		// at the first place. if the first stream has no more data to sent, it will
+		// be removeIdleStream from activeStreamQueue and activeStreams (a map).
+		//if hasMoreData { // put the stream back in the queue (at the end)
+		//	f.streamQueue = append(f.streamQueue, id)
+		//} else { // no more data to send. Stream is not active any more
+		//	delete(f.activeStreams, id)
+		//}
+
+		//fmt.Println("before remove")
+		if !hasMoreData {
+			removeIdleStream(id, f.streamGetter)
 			delete(f.activeStreams, id)
 		}
+		//fmt.Println("after remove")
+
 		// The frame can be nil
 		// * if the receiveStream was canceled after it said it had data
 		// * the remaining size doesn't allow us to add another STREAM frame
@@ -113,10 +176,17 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 			continue
 		}
 		frames = append(frames, *frame)
-		length += frame.Length(f.version)
+
+		l := frame.Length(f.version)
+		fmt.Printf("  content-type = %v, mime-type = %v, url = %v, size = %v\n",
+			mime.TypeByExtension(filepath.Ext(str.GetUrl())), GetMimeType(str.GetUrl()), str.GetUrl(), l)
+
+		length += l
 		lastFrame = frame
 	}
+
 	f.mutex.Unlock()
+
 	if lastFrame != nil {
 		lastFrameLen := lastFrame.Length(f.version)
 		// account for the smaller size of the last STREAM frame

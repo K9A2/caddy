@@ -1,6 +1,6 @@
 build:
 	go build -o caddy main.go	
-	scp caddy root@192.168.1.177:~/download/local_caddy
+	cp caddy /home/stormlin/project/har-files/youtube/caddy
 
 clean:
 	rm caddy

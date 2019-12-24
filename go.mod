@@ -9,6 +9,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-acme/lego/v3 v3.1.0
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc
+	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.3.2
 	github.com/ilibs/json5 v1.0.1
 	github.com/imdario/mergo v0.3.8 // indirect

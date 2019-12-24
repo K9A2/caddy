@@ -52,6 +52,12 @@ type streamI interface {
 	handleStopSendingFrame(*wire.StopSendingFrame)
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
+
+	getDataSize() int
+	SetUrl(string)
+	GetUrl() string
+	GetMtype() string
+	SetMtype(string)
 }
 
 var _ receiveStreamI = (streamI)(nil)
@@ -70,6 +76,16 @@ type stream struct {
 	sendStreamCompleted    bool
 
 	version protocol.VersionNumber
+
+	url string
+}
+
+func (s *stream) GetSendStreamUrl() string {
+	return s.sendStream.GetUrl()
+}
+
+func (s *stream) SetSendStreamUrl(u string) {
+	s.sendStream.SetUrl(u)
 }
 
 var _ Stream = &stream{}

@@ -83,7 +83,7 @@ func (m *connMultiplexer) RemoveConn(c net.PacketConn) error {
 
 	connIndex := c.LocalAddr().Network() + " " + c.LocalAddr().String()
 	if _, ok := m.conns[connIndex]; !ok {
-		return fmt.Errorf("cannote remove connection, connection is unknown")
+		return fmt.Errorf("cannote removeIdleStream connection, connection is unknown")
 	}
 
 	delete(m.conns, connIndex)

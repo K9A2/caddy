@@ -76,8 +76,6 @@ type stream struct {
 	sendStreamCompleted    bool
 
 	version protocol.VersionNumber
-
-	url string
 }
 
 func (s *stream) GetSendStreamUrl() string {
@@ -86,6 +84,14 @@ func (s *stream) GetSendStreamUrl() string {
 
 func (s *stream) SetSendStreamUrl(u string) {
 	s.sendStream.SetUrl(u)
+}
+
+func (s *stream) SetSendStreamMimeType(mimeType string) {
+	s.sendStream.SetMtype(mimeType)
+}
+
+func (s *stream) GetSendStreamMimeType() string {
+	return s.sendStream.GetMtype()
 }
 
 var _ Stream = &stream{}

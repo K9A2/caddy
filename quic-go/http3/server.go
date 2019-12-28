@@ -243,14 +243,17 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 
 	if s.logger.Debug() {
 		s.logger.Infof("%s %s%s, on stream %d", req.Method, req.Host, req.RequestURI, str.StreamID())
-		fmt.Printf("%s %s%s, on stream %d\n", req.Method, req.Host, req.RequestURI, str.StreamID())
+		//fmt.Printf("%s %s%s, on stream %d\n", req.Method, req.Host, req.RequestURI, str.StreamID())
 	} else {
 		s.logger.Infof("%s %s%s", req.Method, req.Host, req.RequestURI)
-		fmt.Printf("%s %s%s\n", req.Method, req.Host, req.RequestURI)
+		fmt.Printf("%s %s%s\n", req.Method, req.Host, req.URL)
 	}
 
 	// set the url at quic stream level
 	str.SetSendStreamUrl(req.RequestURI)
+	if str.GetSendStreamMimeType() == "" {
+		str.SetSendStreamMimeType(quic.GetMimeType(req.RequestURI))
+	}
 
 	req = req.WithContext(str.Context())
 	responseWriter := newResponseWriter(str, s.logger)

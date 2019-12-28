@@ -35,7 +35,7 @@ type ClientToken struct {
 
 type TokenStore interface {
 	// Pop searches for a ClientToken associated with the given key.
-	// Since tokens are not supposed to be reused, it must remove the token from the cache.
+	// Since tokens are not supposed to be reused, it must removeFrom the token from the cache.
 	// It returns nil when no token is found.
 	Pop(key string) (token *ClientToken)
 
@@ -105,6 +105,9 @@ type Stream interface {
 
 	SetSendStreamUrl(url string)
 	GetSendStreamUrl() string
+
+	SetSendStreamMimeType(string)
+	GetSendStreamMimeType() string
 }
 
 // A ReceiveStream is a unidirectional Receive Stream.

@@ -160,10 +160,6 @@ func (s *sendStream) Write(p []byte) (int, error) {
 		s.mutex.Unlock()
 		if !notifiedSender {
 			s.sender.onHasStreamData(s.streamID) // must be called without holding the mutex
-			if s.GetMtype() == "" {
-				s.mtype = GetMimeType(s.url)
-			}
-			//fmt.Printf("stream %v, mime-type = %v\n", s.StreamID(), s.mtype)
 			notifiedSender = true
 		}
 		if deadline.IsZero() {

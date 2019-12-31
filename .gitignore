@@ -3,6 +3,8 @@ _gitignore/
 Caddyfile
 !caddyfile/
 
+.vscode/
+
 # artifacts from pprof tooling
 *.prof
 *.test

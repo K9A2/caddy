@@ -7,6 +7,10 @@ VALIDATED_COMMANDS = [
     'priority'
 ]
 
+def dump_object_to_json_file(obj, file_path):
+    with open(file_path, 'w') as target_file:
+        target_file.write(json.dumps(obj, indent=2))
+
 
 def parse_har_file(har_file_path):
     with open(har_file_path, 'r') as har_file:
@@ -199,7 +203,6 @@ def command_priority(argv):
         url = resource['url']
         resource['indegree'] = indegree_dict[url]
 
-    print('indegree list')
     # 区分叶子节点和非叶子节点
     indegree_intermediate_nodes = []
     indegree_leaf_nodes = []
@@ -211,16 +214,10 @@ def command_priority(argv):
         # 中间节点的入度不为 0
         indegree_intermediate_nodes.append(resource)
 
-    # todo: 找不到 order
     indegree_intermediate_nodes.sort(key=lambda element: element['indegree'], reverse=True)
-    for resource in indegree_intermediate_nodes:
-        print('  indegree = <%.1f>, url = <%s>' % (resource['indegree'], resource['url']))
     indegree_leaf_nodes = sort_leaf_nodes_by_type_and_size(indegree_leaf_nodes)
-    for resource in indegree_leaf_nodes:
-        print('  leaf node, size = <%.1f>KB, url = <%s>' % (resource['size'] / 1000.0, resource['url']))
 
     # 计算文件在加载过程中的平均位置，越小越靠前，应当优先传输
-    print('load order list')
     load_order = {}
     for resource in critical_path:
         # 初始化相关结构体
@@ -257,13 +254,45 @@ def command_priority(argv):
         load_order_intermediate_nodes.append(resource)
 
     load_order_intermediate_nodes.sort(key=lambda element: element['order'] / element['count'])
-    for resource in load_order_intermediate_nodes:
+    # for resource in load_order_intermediate_nodes:
+    #     url = resource['url']
+    #     order = load_order[url]['order']
+    #     count = load_order[url]['count']
+    #     print('  average_order = <%.1f>, url = <%s>' % (order / count, url))
+    # for resource in load_order_leaf_nodes:
+    #     print('  leaf node, size = <%.1f>KB, url = <%s>' % (resource['size'] / 1000.0, resource['url']))
+
+    # 找出所有不在关键路径上的资源
+    url_in_criticalp_path = set()
+    for resource in critical_path:
+        url_in_criticalp_path.add(resource['url'])
+    resource_not_in_critical_path = []
+    for resource in priority_info_list:
         url = resource['url']
-        order = load_order[url]['order']
-        count = load_order[url]['count']
-        print('  average_order = <%.1f>, url = <%s>' % (order / count, url))
-    for resource in load_order_leaf_nodes:
-        print('  leaf node, size = <%.1f>KB, url = <%s>' % (resource['size'] / 1000.0, resource['url']))
+        if url not in url_in_criticalp_path:
+            resource_not_in_critical_path.append(resource)
+
+    # 导出的顺序列表分两部分：
+    # 第一部分：关键路径上的资源，采用指定顺序的方式传输
+    # 第二部分：不在关键路径上的资源，采用简单文件分类的形式进行传输
+    managed_resources = []
+    managed_resources.extend(indegree_intermediate_nodes)
+    managed_resources.extend(indegree_leaf_nodes)
+    # 去除重复的资源
+    added_url = set()
+    temp = []
+    for resource in managed_resources:
+        url = resource['url']
+        if url not in added_url:
+            added_url.add(url)
+            temp.append(resource)
+    managed_resources = temp
+    urls_to_dump = []
+    for resource in managed_resources:
+        urls_to_dump.append(resource['url'])
+
+    dump_object_to_json_file(urls_to_dump, 'result.json')
+
 
 
 def main(argv):

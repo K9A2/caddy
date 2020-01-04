@@ -4,8 +4,15 @@ import sys
 
 VALIDATED_COMMANDS = [
     'remove',
-    'priority'
+    'priority',
+    'static-file-size'
 ]
+
+KEY_RESOURCE_TYPE = 'resource_type'
+KEY_URL = 'url'
+KEY_SIZE = 'size'
+KEY_MIME_TYPE = 'mime_type'
+
 
 def dump_object_to_json_file(obj, file_path):
     with open(file_path, 'w') as target_file:
@@ -207,14 +214,15 @@ def command_priority(argv):
     indegree_intermediate_nodes = []
     indegree_leaf_nodes = []
     for resource in critical_path:
-        if resource['indegree'] ==0:
+        if resource['indegree'] == 0:
             # 叶子节点的入度为 0
             indegree_leaf_nodes.append(resource)
             continue
         # 中间节点的入度不为 0
         indegree_intermediate_nodes.append(resource)
 
-    indegree_intermediate_nodes.sort(key=lambda element: element['indegree'], reverse=True)
+    indegree_intermediate_nodes.sort(
+        key=lambda element: element['indegree'], reverse=True)
     indegree_leaf_nodes = sort_leaf_nodes_by_type_and_size(indegree_leaf_nodes)
 
     # 计算文件在加载过程中的平均位置，越小越靠前，应当优先传输
@@ -253,7 +261,8 @@ def command_priority(argv):
             continue
         load_order_intermediate_nodes.append(resource)
 
-    load_order_intermediate_nodes.sort(key=lambda element: element['order'] / element['count'])
+    load_order_intermediate_nodes.sort(
+        key=lambda element: element['order'] / element['count'])
     # for resource in load_order_intermediate_nodes:
     #     url = resource['url']
     #     order = load_order[url]['order']
@@ -294,6 +303,123 @@ def command_priority(argv):
     dump_object_to_json_file(urls_to_dump, 'result.json')
 
 
+def remove_deulicated_resource(resource_list):
+    """
+    移除所有具有重复 url 的资源，并返回移除重复项之后的资源列表
+    """
+    url_added = set()
+    unduplicated_resources = []
+    for resource in resource_list:
+        if resource[KEY_URL] not in url_added:
+            url_added.add(resource[KEY_URL])
+            unduplicated_resources.append(resource)
+    return unduplicated_resources
+
+
+def command_static_file_size(argv):
+    """
+    根据文件类型和大小生成传输顺序
+    """
+    har_file_path = argv[1]
+    output_file_path = argv[3]
+    har_file_json = parse_har_file(har_file_path)
+
+    # 把所有资源分类为以下资源
+    highest_priority_list = []
+    highest_priority_resource_type = ['document']
+
+    high_priority_list = []
+    high_priority_resource_type = ['stylesheet']
+
+    normal_priority_list = []
+    normal_priority_resource_type = ['script']
+
+    low_priority_list = []
+    low_priority_resource_type = ['font']
+
+    lowest_priority_list = []
+    lowest_priority_resource_type = ['image']
+
+    background_priority_list = []
+    background_priority_resource_type = ['xhr', 'manifest', 'other']
+
+    # 从 har 文件中读取所有请求，按照文件类型分类之后再按照大小排序
+    entries = har_file_json['log']['entries']
+    print('count: %s' % len(entries))
+    for resource in entries:
+        url = resource['request']['url']
+        mime_type = resource['response']['content']['mimeType']
+        size = resource['response']['content']['size']
+        resource_type = resource['_resourceType']
+
+        extracted_resource = {
+            KEY_URL: url,
+            KEY_MIME_TYPE: mime_type,
+            KEY_SIZE: size,
+            KEY_RESOURCE_TYPE: resource_type
+        }
+
+        if resource_type in highest_priority_resource_type:
+            highest_priority_list.append(extracted_resource)
+        elif resource_type in high_priority_resource_type:
+            high_priority_list.append(extracted_resource)
+        elif resource_type in normal_priority_resource_type:
+            normal_priority_list.append(extracted_resource)
+        elif resource_type in low_priority_resource_type:
+            low_priority_list.append(extracted_resource)
+        elif resource_type in lowest_priority_resource_type:
+            lowest_priority_list.append(extracted_resource)
+        elif resource_type in background_priority_resource_type:
+            background_priority_resource_type.append(extracted_resource)
+        else:
+            # 找不到合适的队列插入此资源
+            print('error: no corresponding queue available, resource_type = <%s>, \
+                  url = <%s>' % (resource_type, url))
+
+    # 对分类的各种资源按照大小进行排序
+    highest_priority_list.sort(key=lambda element: element[KEY_SIZE])
+    highest_priority_list = remove_deulicated_resource(highest_priority_list)
+
+    high_priority_list.sort(key=lambda element: element[KEY_SIZE])
+    high_priority_list = remove_deulicated_resource(high_priority_list)
+
+    normal_priority_list.sort(key=lambda element: element[KEY_SIZE])
+    normal_priority_list = remove_deulicated_resource(normal_priority_list)
+
+    low_priority_list.sort(key=lambda element: element[KEY_SIZE])
+    low_priority_list = remove_deulicated_resource(low_priority_list)
+
+    lowest_priority_list.sort(key=lambda element: element[KEY_SIZE])
+    lowest_priority_list = remove_deulicated_resource(lowest_priority_list)
+
+    background_priority_list.sort(key=lambda element: element[KEY_SIZE])
+    background_priority_list = remove_deulicated_resource(background_priority_list)
+
+    sequence = {
+        'highest': [],
+        'high': [],
+        'normal': [],
+        'low': [],
+        'lowest': [],
+        'background': []
+    }
+
+    # 结果只保留资源的 url
+    for resource in highest_priority_list:
+        sequence['highest'].append(resource[KEY_URL])
+    for resource in high_priority_list:
+        sequence['high'].append(resource[KEY_URL])
+    for resource in normal_priority_list:
+        sequence['normal'].append(resource[KEY_URL])
+    for resource in low_priority_list:
+        sequence['low'].append(resource[KEY_URL])
+    for resource in lowest_priority_list:
+        sequence['lowest'].append(resource[KEY_URL])
+    for resource in background_priority_list:
+        sequence['backgroud'].append(resource[KEY_URL])
+
+    dump_object_to_json_file(sequence, output_file_path)
+
 
 def main(argv):
     # parse arguments from command line
@@ -314,6 +440,8 @@ def main(argv):
     elif command == 'priority':
         command_priority(argv[1:])
         return
+    elif command == 'static-file-size':
+        command_static_file_size(argv[1:])
 
 
 if __name__ == "__main__":

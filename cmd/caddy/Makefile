@@ -1,6 +1,6 @@
 build:
 	go build -o caddy main.go	
-	cp caddy /home/stormlin/project/har-files/youtube/caddy
+	cp caddy ../../har-files/youtube
 
 clean:
 	rm caddy

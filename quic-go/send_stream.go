@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/logger"
 	"github.com/caddyserver/caddy/v2/quic-go/core/ackhandler"
-
 	"github.com/caddyserver/caddy/v2/quic-go/core/flowcontrol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
@@ -23,6 +23,7 @@ type sendStreamI interface {
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
 
 	getDataSize() int
+	setDataToWrite([]byte)
 	SetUrl(url string)
 	GetUrl() string
 	GetMtype() string
@@ -89,6 +90,14 @@ func (s *sendStream) getDataSize() int {
 	defer s.mutex.Unlock()
 	s.mutex.Lock()
 	return len(s.DataForWriting)
+}
+
+// 通过这个函数把 stream 要写入的数据替换为内存中的数据
+func (s *sendStream) setDataToWrite(content []byte) {
+	defer s.mutex.Unlock()
+	s.mutex.Lock()
+	s.DataForWriting = content
+	logger.Info("data replaced")
 }
 
 func (s *sendStream) SetUrl(url string) {
@@ -186,6 +195,7 @@ func (s *sendStream) Write(p []byte) (int, error) {
 // maxBytes is the maximum length this frame (including frame header) will have.
 func (s *sendStream) popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool /* has more data to send */) {
 	s.mutex.Lock()
+	logger.Infof("popStreamFrame: hit with maxBytes <%v>", maxBytes)
 	f, hasMoreData := s.popNewOrRetransmittedStreamFrame(maxBytes)
 	if f != nil {
 		s.numOutstandingFrames++
@@ -218,6 +228,8 @@ func (s *sendStream) popNewOrRetransmittedStreamFrame(maxBytes protocol.ByteCoun
 	f.DataLenPresent = true
 	f.Data = f.Data[:0]
 
+	logger.Infof("popNewOrRetransmittedStreamFrame: hit with maxBytes <%v>")
+
 	hasMoreData := s.popNewStreamFrame(f, maxBytes)
 
 	if len(f.Data) == 0 && !f.FinBit {
@@ -232,6 +244,7 @@ func (s *sendStream) popNewStreamFrame(f *wire.StreamFrame, maxBytes protocol.By
 		return false
 	}
 
+	logger.Infof("popNewStreamFrame: hit with maxBytes <%v>", maxBytes)
 	maxDataLen := f.MaxDataLen(maxBytes, s.version)
 	if maxDataLen == 0 { // a STREAM frame must have at least one byte of data
 		return s.DataForWriting != nil
@@ -285,8 +298,11 @@ func (s *sendStream) getDataForWriting(f *wire.StreamFrame, maxBytes protocol.By
 
 	maxBytes = utils.MinByteCount(maxBytes, s.flowController.SendWindowSize())
 	if maxBytes == 0 {
+		logger.Infof("getDataForWriting: not enough send window")
 		return
 	}
+
+	logger.Infof("getDataForWriting: maxBytes <%v>", maxBytes)
 
 	if protocol.ByteCount(len(s.DataForWriting)) > maxBytes {
 		f.Data = f.Data[:maxBytes]

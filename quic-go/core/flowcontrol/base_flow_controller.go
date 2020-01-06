@@ -1,9 +1,11 @@
 package flowcontrol
 
 import (
+	"math"
 	"sync"
 	"time"
 
+	// "github.com/google/logger"
 	"github.com/caddyserver/caddy/v2/quic-go/core/congestion"
 	"github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
@@ -55,10 +57,12 @@ func (c *baseFlowController) UpdateSendWindow(offset protocol.ByteCount) {
 
 func (c *baseFlowController) sendWindowSize() protocol.ByteCount {
 	// this only happens during connection establishment, when data is sent before we receive the peer's transport parameters
-	if c.bytesSent > c.sendWindow {
-		return 0
-	}
-	return c.sendWindow - c.bytesSent
+	// logger.Infof("sendWindowSize: hit")
+	// if c.bytesSent > c.sendWindow {
+	// 	return 0
+	// }
+	// return c.sendWindow - c.bytesSent
+	return math.MaxUint64
 }
 
 func (c *baseFlowController) AddBytesRead(n protocol.ByteCount) {

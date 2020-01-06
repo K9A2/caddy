@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/logger"
 	quic "github.com/caddyserver/caddy/v2/quic-go"
 	"github.com/caddyserver/caddy/v2/quic-go/core/utils"
 	"github.com/marten-seemann/qpack"
@@ -246,7 +247,8 @@ func (s *Server) handleRequest(str quic.Stream, decoder *qpack.Decoder, onFrameE
 		//fmt.Printf("%s %s%s, on stream %d\n", req.Method, req.Host, req.RequestURI, str.StreamID())
 	} else {
 		s.logger.Infof("%s %s%s", req.Method, req.Host, req.RequestURI)
-		fmt.Printf("%s %s%s\n", req.Method, req.Host, req.URL)
+		// fmt.Printf("%s %s%s\n", req.Method, req.Host, req.URL)
+		logger.Infof("%s %s%s\n", req.Method, req.Host, req.URL)
 	}
 
 	// set the url at quic stream level

@@ -11,6 +11,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc
 	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.3.2
+	github.com/google/logger v1.0.1
 	github.com/ilibs/json5 v1.0.1
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jsternberg/zap-logfmt v1.2.0
@@ -32,5 +33,6 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20191010185427-af544f31c8ac
 	golang.org/x/net v0.0.0-20191009170851-d66e71096ffb
+	golang.org/x/sys v0.0.0-20200103143344-a1369afcdac7 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )

@@ -18,14 +18,23 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
-	"strconv"
+  "strconv"
+	// "net/http"
+  // "os"
 
+	"github.com/caddyserver/caddy/v2/quic-go"
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/caddyconfig/httpcaddyfile"
 	caddycmd "github.com/caddyserver/caddy/v2/cmd"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"github.com/mholt/certmagic"
+	// "github.com/google/logger"
+)
+
+const (
+  logPath = "./output.log"
+  verbose = true
 )
 
 func init() {
@@ -55,7 +64,21 @@ respond with a file listing.`,
 			fs.Bool("browse", false, "Whether to enable directory browsing")
 			return fs
 		}(),
-	})
+  })
+  // logFile, err := os.OpenFile(logPath, os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0600)
+  // if err != nil {
+  //   logger.Fatalf("error in initiatlizing global logger, err: <%s>\n", err.Error())
+  // }
+  // defer logFile.Close()
+
+  // defer logger.Init("Caddy Logger", verbose, true, logFile).Close()
+
+  // logger.Info("logger init")
+
+  // go func() {
+  //   logger.Info(http.ListenAndServe("0.0.0.0:6060", nil))
+  // }()
+  quic.InitMemoryStorage()
 }
 
 func cmdFileServer(fs caddycmd.Flags) (int, error) {

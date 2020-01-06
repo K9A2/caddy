@@ -1,32 +1,20 @@
 package quic
 
 import (
-  "encoding/json"
   "fmt"
-  "io/ioutil"
-  "os"
 
   "github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 )
 
-type sequenceFile struct {
-  HighestPriorityQueue    []string `json:"highest"`
-  HighPriorityQueue       []string `json:"high"`
-  NormalPriorityQueue     []string `json:"normal"`
-  LowPriorityQueue        []string `json:"low"`
-  LowestPriorityQueue     []string `json:"lowest"`
-  BackgroundPriorityQueue []string `json:"background"`
-}
-
 // FileTypeScheduler 是基于文件类型和文件大小的调度器
 type FileTypeScheduler struct {
   // 对包含在配置文件内的资源提供六种不同的调度优先级
-  highestPriorityQueue    []*streamControlBlock // 1
-  highPriorityQueue       []*streamControlBlock // 2
-  normalPriorityQueue     []*streamControlBlock // 3
-  lowPriorityQueue        []*streamControlBlock // 4
-  lowestPriorityQueue     []*streamControlBlock // 5
-  backgroundPriorityQueue []*streamControlBlock // 6
+  highestPriorityQueue    []*StreamControlBlock // 1
+  highPriorityQueue       []*StreamControlBlock // 2
+  normalPriorityQueue     []*StreamControlBlock // 3
+  lowPriorityQueue        []*StreamControlBlock // 4
+  lowestPriorityQueue     []*StreamControlBlock // 5
+  backgroundPriorityQueue []*StreamControlBlock // 6
 
   // 每条队列中活跃的 stream 数目，unmanaged 队列直接返回长度即可
   highestPriorityQueueActiveCount    int
@@ -43,30 +31,16 @@ type FileTypeScheduler struct {
   streamQueueMap map[string]int
 }
 
-// 读取文件传输顺序，成功读取时会返回解析后的文件顺序数据
-func loadConfig(fileName string) *sequenceFile {
-  jsonFile, err := os.Open(fileName)
-  if err != nil {
-    fmt.Printf("error in loading file sequence, err = <%s>\n", err.Error())
-    return nil
-  }
-  defer jsonFile.Close()
-
-  byteValue, _ := ioutil.ReadAll(jsonFile)
-  var sequence sequenceFile
-  json.Unmarshal(byteValue, &sequence)
-  return &sequence
-}
-
 // NewFileTypeScheduler 根据加载的配置文件构造一个新的文件类型调度器
 func NewFileTypeScheduler() *FileTypeScheduler {
-  sequence := loadConfig("static-file-type-sequence.json")
+  sequence := LoadConfig()
   fts := FileTypeScheduler{
-    highestPriorityQueue: make([]*streamControlBlock, 0),
-    highPriorityQueue:    make([]*streamControlBlock, 0),
-    normalPriorityQueue:  make([]*streamControlBlock, 0),
-    lowPriorityQueue:     make([]*streamControlBlock, 0),
-    lowestPriorityQueue:  make([]*streamControlBlock, 0),
+    highestPriorityQueue:    make([]*StreamControlBlock, 0),
+    highPriorityQueue:       make([]*StreamControlBlock, 0),
+    normalPriorityQueue:     make([]*StreamControlBlock, 0),
+    lowPriorityQueue:        make([]*StreamControlBlock, 0),
+    lowestPriorityQueue:     make([]*StreamControlBlock, 0),
+    backgroundPriorityQueue: make([]*StreamControlBlock, 0),
 
     unmanagedStreamQueue: make([]protocol.StreamID, 0),
 
@@ -75,27 +49,27 @@ func NewFileTypeScheduler() *FileTypeScheduler {
 
   // 把已经确定传输顺序的 stream 压入队列中
   for _, url := range sequence.HighestPriorityQueue {
-    fts.highestPriorityQueue = append(fts.highestPriorityQueue, newStreamControlBlock(-1, url, false))
+    fts.highestPriorityQueue = append(fts.highestPriorityQueue, NewStreamControlBlock(-1, url, false, nil, false))
     fts.streamQueueMap[url] = 1
   }
   for _, url := range sequence.HighPriorityQueue {
-    fts.highPriorityQueue = append(fts.highPriorityQueue, newStreamControlBlock(-1, url, false))
+    fts.highPriorityQueue = append(fts.highPriorityQueue, NewStreamControlBlock(-1, url, false, nil, false))
     fts.streamQueueMap[url] = 2
   }
   for _, url := range sequence.NormalPriorityQueue {
-    fts.normalPriorityQueue = append(fts.normalPriorityQueue, newStreamControlBlock(-1, url, false))
+    fts.normalPriorityQueue = append(fts.normalPriorityQueue, NewStreamControlBlock(-1, url, false, nil, false))
     fts.streamQueueMap[url] = 3
   }
   for _, url := range sequence.LowPriorityQueue {
-    fts.lowPriorityQueue = append(fts.lowPriorityQueue, newStreamControlBlock(-1, url, false))
+    fts.lowPriorityQueue = append(fts.lowPriorityQueue, NewStreamControlBlock(-1, url, false, nil, false))
     fts.streamQueueMap[url] = 4
   }
   for _, url := range sequence.LowestPriorityQueue {
-    fts.lowestPriorityQueue = append(fts.lowestPriorityQueue, newStreamControlBlock(0, url, false))
+    fts.lowestPriorityQueue = append(fts.lowestPriorityQueue, NewStreamControlBlock(0, url, false, nil, false))
     fts.streamQueueMap[url] = 5
   }
   for _, url := range sequence.BackgroundPriorityQueue {
-    fts.backgroundPriorityQueue = append(fts.backgroundPriorityQueue, newStreamControlBlock(0, url, false))
+    fts.backgroundPriorityQueue = append(fts.backgroundPriorityQueue, NewStreamControlBlock(0, url, false, nil, false))
     fts.streamQueueMap[url] = 6
   }
 
@@ -116,7 +90,7 @@ func (fts *FileTypeScheduler) Empty() bool {
 }
 
 // findAndSetActive 把该队列中具有指定 id 和 url 的 stream 设为指定状态，即活跃和非活跃
-func findStreamAndSetStatus(id protocol.StreamID, url string, status bool, queue *[]*streamControlBlock) {
+func findStreamAndSetStatus(id protocol.StreamID, url string, status bool, queue *[]*StreamControlBlock) {
   for _, val := range *queue {
     if val.URL == url {
       val.StreamID = id
@@ -129,25 +103,25 @@ func findStreamAndSetStatus(id protocol.StreamID, url string, status bool, queue
 // SetActiveStream 把具有指定 id 和 url 的 stream 设为活跃状态。此 stream 被设为活跃
 // 状态之后可被 framer 封装数据
 func (fts *FileTypeScheduler) SetActiveStream(id protocol.StreamID, url string) {
-  // 针对处于 unmanaged 状态的控制 stream 的处理
+  // 处于 unmanaged 状态的控制 stream 不需要替换数据
   if url == "" {
     // 没有 url 的 stream 为控制 stream，需要以最高优先级传输
-    newQueue := make([]*streamControlBlock, 0)
-    newQueue = append(newQueue, newStreamControlBlock(id, url, true))
+    newQueue := make([]*StreamControlBlock, 0)
+    newQueue = append(newQueue, NewStreamControlBlock(id, url, true, nil, false))
     // 把这些没有 url 的控制 stream 插到最高优先级队列的首位
     fts.highestPriorityQueue = append(newQueue, fts.highestPriorityQueue...)
     fts.highestPriorityQueueActiveCount++
     _, ok := fts.streamQueueMap[url]
     if ok {
       // url 为 "" 的 控制 stream 已存在
-      fmt.Printf("error in inserting control stream <%v> into highest queue, error: url exists", id)
+      fmt.Printf("error in inserting control stream <%v> into highest queue, error: url exists\n", id)
       return
     }
     fts.streamQueueMap[url] = 1
     return
   }
 
-  // 针对数据 stream 的处理策略
+  // 数据 stream 需要替换数据
   queueIndex, ok := fts.streamQueueMap[url]
   if !ok {
     // 此 stream 是一条 unmanaged 的 stream，以最低优先级传输
@@ -160,7 +134,7 @@ func (fts *FileTypeScheduler) SetActiveStream(id protocol.StreamID, url string) 
   switch queueIndex {
   case 1:
     findStreamAndSetStatus(id, url, true, &fts.highestPriorityQueue)
-    fts.highestPriorityQueueActiveCount++
+		fts.highestPriorityQueueActiveCount++
     return
   case 2:
     findStreamAndSetStatus(id, url, true, &fts.highPriorityQueue)
@@ -183,14 +157,14 @@ func (fts *FileTypeScheduler) SetActiveStream(id protocol.StreamID, url string) 
     fts.backgroundPriorityQueueActiveCount++
     return
   default:
-    fmt.Printf("error in set active stream: stream <%v>, url <%v>: not found " +
+    fmt.Printf("error in set active stream: stream <%v>, url <%v>: not found "+
       "in any available queue\n", id, url)
     return
   }
 }
 
-// SetIdleStream 把具有指定 id 和 url 的 stream 设为空闲状态，调度器不会把此类 stream
-// 向 framer 提供
+// SetIdleStream 把具有指定 id 和 url 的 stream 设为空闲状态，调度器不会向 framer
+// 提供此类 stream
 func (fts *FileTypeScheduler) SetIdleStream(id protocol.StreamID, url string) {
   queueIndex, ok := fts.streamQueueMap[url]
   if !ok {
@@ -222,17 +196,17 @@ func (fts *FileTypeScheduler) SetIdleStream(id protocol.StreamID, url string) {
     return
   case 6:
     findStreamAndSetStatus(id, url, false, &fts.backgroundPriorityQueue)
-    fts.lowestPriorityQueueActiveCount--
-		return
+    fts.backgroundPriorityQueueActiveCount--
+    return
   default:
-		// 从 unmanaged stream 队列中移除第一条 stream
-		delete(fts.streamQueueMap, url)
+    // 从 unmanaged stream 队列中移除第一条 stream
+    delete(fts.streamQueueMap, url)
     fts.unmanagedStreamQueue = fts.unmanagedStreamQueue[1:]
   }
 }
 
 // findFirstActiveStream 查找队列中第一条为 active 状态的 stream
-func findFirstActiveStream(queue *[]*streamControlBlock) (protocol.StreamID, bool) {
+func findFirstActiveStream(queue *[]*StreamControlBlock) (protocol.StreamID, bool) {
   for _, val := range *queue {
     if val.Active {
       return val.StreamID, true
@@ -294,7 +268,7 @@ func (fts *FileTypeScheduler) PopNextActiveStream() protocol.StreamID {
 
   // unmanaged 的 stream 具有最低优先级
   if len(fts.unmanagedStreamQueue) > 0 {
-		result := fts.unmanagedStreamQueue[0]
+    result := fts.unmanagedStreamQueue[0]
     return result
   }
   // fmt.Println("PopNextActiveStream: return -1")
@@ -303,7 +277,7 @@ func (fts *FileTypeScheduler) PopNextActiveStream() protocol.StreamID {
 }
 
 // findNilStream 从给定的队列中查找具有指定 StreamID 的 stream 的数组下标
-func findNilStream(id protocol.StreamID, queue *[]*streamControlBlock) (int, bool) {
+func findNilStream(id protocol.StreamID, queue *[]*StreamControlBlock) (int, bool) {
   for index, val := range *queue {
     if val.StreamID == id {
       return index, true

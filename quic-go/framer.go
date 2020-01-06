@@ -3,6 +3,7 @@ package quic
 import (
   "sync"
 
+	"github.com/google/logger"
   "github.com/caddyserver/caddy/v2/quic-go/core/ackhandler"
   "github.com/caddyserver/caddy/v2/quic-go/core/protocol"
   "github.com/caddyserver/caddy/v2/quic-go/core/utils"
@@ -81,7 +82,27 @@ func (f *framerI) AddActiveStream(id protocol.StreamID) {
     if str.GetMtype() == "" {
       str.SetMtype("text/html")
     }
-    f.schd.SetActiveStream(id, str.GetUrl())
+		f.schd.SetActiveStream(id, str.GetUrl())
+
+		// var block *StreamControlBlock
+		// var url string
+		// if str.GetUrl() == "/" {
+		// 	url = "index.html"
+		// 	// block = GetMemoryStorage().GetByURL("index.html")
+		// } else {
+		// 	url = str.GetUrl()
+		// 	// block = GetMemoryStorage().GetByURL(str.GetUrl())
+		// }
+		// block = GetMemoryStorage().GetByURL(url)
+		// if block != nil && !block.Replaced {
+		// 	// memory storage 中包含此文件，在没有替换的时候需要替换为 memory storage 中的数据
+		// 	str.setDataToWrite(*block.Data)
+		// 	logger.Infof("replaced data for str <%v>, url <%v>", id, url)
+		// 	// 设置为已替换状态
+		// 	GetMemoryStorage().MarkAsReplaced(url)
+		// 	return
+		// }
+		// logger.Infof("stream not found, id <%v>, url <%v>", id, url)
   }
 }
 
@@ -92,31 +113,32 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
   f.mutex.Lock()
   // pop STREAM frames, until less than MinStreamFrameSize bytes are left in the packet
 	numActiveStreams := f.schd.ActiveStreamCount()
-	// fmt.Printf("framer: numActiveStreams <%v>\n", numActiveStreams)
+	logger.Infof("framer: numActiveStreams <%v>\n", numActiveStreams)
   for i := 0; i < numActiveStreams; i++ {
     if protocol.MinStreamFrameSize+length > maxLen {
       break
     }
 
 		// 从调度器中取出一条 stream
-    id := f.schd.PopNextActiveStream()
+		id := f.schd.PopNextActiveStream()
 
     // This should never return an error. Better check it anyway.
     // The stream will only be in the streamQueue, if it enqueued itself there.
-    str, err := f.streamGetter.GetOrOpenSendStream(id)
+		str, err := f.streamGetter.GetOrOpenSendStream(id)
     // The stream can be nil if it completed after it said it had data.
     if str == nil || err != nil {
       delete(f.activeStreams, id)
       f.schd.RemoveNilStream(id)
       continue
     }
+		logger.Infof("framer: next stream id <%v>, url <%v>", id, str.GetUrl())
 
     remainingLen := maxLen - length
     // For the last STREAM frame, we'll removeIdleStream the DataLen field later.
     // Therefore, we can pretend to have more bytes available when popping
     // the STREAM frame (which will always have the DataLen set).
     remainingLen += utils.VarIntLen(uint64(remainingLen))
-    frame, hasMoreData := str.popStreamFrame(remainingLen)
+		frame, hasMoreData := str.popStreamFrame(remainingLen)
 
     // if the first stream still has more data to sent, it will still be placed
     // at the first place. if the first stream has no more data to sent, it will
@@ -129,6 +151,7 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 
     //fmt.Println("before removeFrom")
     if !hasMoreData {
+			logger.Infof("stream <%v>, url <%v> said it has no more data", str.StreamID(), str.GetUrl())
       f.schd.SetIdleStream(id, str.GetUrl())
       delete(f.activeStreams, id)
     }
@@ -143,8 +166,8 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
     frames = append(frames, *frame)
 
     l := frame.Length(f.version)
-    //fmt.Printf("  str = %v, mime-type = %v, url = %v, size = %v, available streams = %v\n",
-    //	str.StreamID(), GetMimeType(str.GetUrl()), str.GetUrl(), l, f.scheduler.ActiveStreamsCount())
+    logger.Infof("  str = %v, mime-type = %v, url = %v, size = %v, available streams = %v\n",
+    	str.StreamID(), GetMimeType(str.GetUrl()), str.GetUrl(), l, f.schd.ActiveStreamCount())
 
     length += l
     lastFrame = frame

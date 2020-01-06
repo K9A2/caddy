@@ -54,6 +54,7 @@ type streamI interface {
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
 
 	getDataSize() int
+	setDataToWrite([]byte)
 	SetUrl(string)
 	GetUrl() string
 	GetMtype() string

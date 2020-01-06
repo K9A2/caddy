@@ -4,39 +4,45 @@ import (
   "fmt"
   "mime"
   "path/filepath"
-	"strings"
+  "strings"
 
   "github.com/caddyserver/caddy/v2/quic-go/core/protocol"
 )
 
 type scheduler interface {
-	// 调度器所管理的活跃 stream 数目
-	ActiveStreamCount() int
-	// 调度器中是否有活跃 stream
-	Empty() bool
+  // 调度器所管理的活跃 stream 数目
+  ActiveStreamCount() int
+  // 调度器中是否有活跃 stream
+  Empty() bool
 
   // 把 id 对应的 stream 设为活跃状态，调度器可以让 framer 从此 stream 中提取数据
-	SetActiveStream(id protocol.StreamID, url string)
-	// 把 id 对应的 stream 设为空闲装填，调度器不可以让 framer 从此 stream 中提取数据
-	SetIdleStream(id protocol.StreamID, url string)
-	// 从调度器中移除空 stream
-	RemoveNilStream(id protocol.StreamID)
+  SetActiveStream(id protocol.StreamID, url string)
+  // 把 id 对应的 stream 设为空闲装填，调度器不可以让 framer 从此 stream 中提取数据
+  SetIdleStream(id protocol.StreamID, url string)
+  // 从调度器中移除空 stream
+  RemoveNilStream(id protocol.StreamID)
 
-	// 从调度器中获取一条活跃 stream
-	PopNextActiveStream() protocol.StreamID
+  // 从调度器中获取一条活跃 stream
+  PopNextActiveStream() protocol.StreamID
 }
 
-type streamControlBlock struct {
+// StreamControlBlock 是 MemoryStorage 中存放的 stream 控制块
+type StreamControlBlock struct {
   StreamID protocol.StreamID
   URL      string
   Active   bool
+	Data     *[]byte
+	Replaced bool
 }
 
-func newStreamControlBlock(id protocol.StreamID, url string, active bool) *streamControlBlock {
-  return &streamControlBlock{
+// NewStreamControlBlock 返回一个按照给定值构造的 StreamControlBlock 变量
+func NewStreamControlBlock(id protocol.StreamID, url string, active bool, data *[]byte, replaced bool) *StreamControlBlock {
+  return &StreamControlBlock{
     StreamID: id,
     URL:      url,
     Active:   active,
+		Data:     data,
+		Replaced: replaced,
   }
 }
 
